@@ -1,40 +1,42 @@
-import sqlite3
+import hashlib
 import os
-import pickle
+import flask
+from flask import request, render_template_string
 
-# 不安全的 SQL 查询（SQL 注入漏洞）
-def get_user_data(user_id):
-    conn = sqlite3.connect('example.db')
-    cursor = conn.cursor()
+app = flask.Flask(__name__)
 
-    # 不安全的拼接 SQL 查询，可能会导致 SQL 注入
-    query = "SELECT * FROM users WHERE id = " + user_id
-    cursor.execute(query)
-    result = cursor.fetchone()
+# 硬编码的敏感信息（敏感信息泄露）
+API_KEY = "12345-ABCDE"  # 这种硬编码的敏感信息在生产环境中非常危险
 
-    conn.close()
-    return result
+# 文件路径遍历漏洞
+def read_file(filename):
+    base_dir = "/var/www/uploads/"
+    # 直接将用户输入作为文件路径的一部分，可能导致路径遍历攻击
+    with open(base_dir + filename, 'r') as file:
+        return file.read()
 
-# 不安全的命令执行（命令注入漏洞）
-def run_command(cmd):
-    # 使用 os.system 执行外部命令，存在命令注入的风险
-    os.system(cmd)
+# 不安全的密码哈希（使用 MD5 进行哈希）
+def hash_password(password):
+    # 使用不安全的 MD5 哈希算法，容易被破解
+    return hashlib.md5(password.encode()).hexdigest()
 
-# 不安全的反序列化（反序列化漏洞）
-def unsafe_deserialization(serialized_data):
-    # 直接反序列化未经过验证的数据，可能导致任意代码执行
-    return pickle.loads(serialized_data)
+# Flask 应用中的 XSS 漏洞
+@app.route("/greet", methods=["GET"])
+def greet_user():
+    user = request.args.get("name")
+    # 直接将用户输入嵌入到 HTML 响应中，存在 XSS 风险
+    template = "<h1>Hello, {}!</h1>".format(user)
+    return render_template_string(template)
 
-# 主函数，用于测试漏洞代码
+# 主函数
 if __name__ == "__main__":
-    # 模拟 SQL 注入
-    user_id = input("Enter user ID: ")
-    print(get_user_data(user_id))
+    # 模拟文件路径遍历
+    filename = input("Enter filename to read: ")
+    print(read_file(filename))
 
-    # 模拟命令注入
-    cmd = input("Enter a shell command to run: ")
-    run_command(cmd)
+    # 模拟密码哈希
+    password = input("Enter a password to hash: ")
+    print("Hashed password: ", hash_password(password))
 
-    # 模拟不安全的反序列化
-    serialized_data = input("Enter serialized data: ")
-    print(unsafe_deserialization(serialized_data))
+    # 启动 Flask Web 应用程序
+    app.run(debug=True)
